@@ -1,4 +1,4 @@
-pipeline {
+﻿pipeline {
     agent any
 
     environment {
@@ -10,61 +10,52 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo '📥 Clonando repositorio...'
+                echo 'Clonando repositorio...'
                 checkout scm
-            }
-        }
-
-        stage('Instalar dependencias') {
-            steps {
-                echo '📦 Instalando dependencias Python...'
-                sh '''
-                    python3 -m venv .venv
-                    . .venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
             }
         }
 
         stage('Pruebas del dataset') {
             steps {
-                echo '🧪 Ejecutando pruebas básicas del dataset...'
+                echo 'Ejecutando pruebas...'
                 sh '''
-                    . .venv/bin/activate
-                    DATA_PATH="${DATA_PATH}" python -m pytest tests/ -v \
-                        --tb=short \
-                        --junitxml=outputs/test_results.xml
+                    mkdir -p outputs
+                    docker run --rm \
+                        -v $(pwd):/app \
+                        -w /app \
+                        -e DATA_PATH=sdss_sample.csv \
+                        python:3.11-slim \
+                        sh -c "pip install -q pytest pandas scikit-learn && python -m pytest tests/ -v --tb=short"
                 '''
-            }
-            post {
-                always {
-                    junit 'outputs/test_results.xml'
-                }
             }
         }
 
         stage('Ejecutar pipeline ML') {
             steps {
-                echo '🚀 Ejecutando pipeline de Machine Learning...'
+                echo 'Ejecutando pipeline ML...'
                 sh '''
-                    . .venv/bin/activate
                     mkdir -p outputs
-                    python main.py --data "${DATA_PATH}" | tee outputs/pipeline.log
+                    docker run --rm \
+                        -v $(pwd):/app \
+                        -v $(pwd)/outputs:/app/outputs \
+                        -w /app \
+                        -e MPLBACKEND=Agg \
+                        python:3.11-slim \
+                        sh -c "pip install -q pandas scikit-learn matplotlib seaborn numpy && python main.py --data sdss_sample.csv"
                 '''
             }
         }
 
         stage('Build Docker') {
             steps {
-                echo '🐳 Construyendo imagen Docker...'
+                echo 'Construyendo imagen Docker...'
                 sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
             }
         }
 
         stage('Run en Docker') {
             steps {
-                echo '▶️  Ejecutando pipeline dentro del contenedor Docker...'
+                echo 'Ejecutando en Docker...'
                 sh """
                     docker run --rm \
                         -v \$(pwd)/outputs:/app/outputs \
@@ -75,22 +66,14 @@ pipeline {
 
         stage('Almacenar artefactos') {
             steps {
-                echo '💾 Archivando métricas y gráficas...'
+                echo 'Archivando artefactos...'
                 archiveArtifacts artifacts: 'outputs/**/*', fingerprint: true
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Pipeline completado exitosamente.'
-        }
-        failure {
-            echo '❌ El pipeline falló. Revisa los logs.'
-        }
-        always {
-            echo '🧹 Limpiando entorno virtual...'
-            sh 'rm -rf .venv'
-        }
+        success { echo 'Pipeline completado exitosamente.' }
+        failure { echo 'El pipeline fallo.' }
     }
 }
