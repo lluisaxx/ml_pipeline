@@ -1,0 +1,17 @@
+{
+  "clasificacion": {
+    "accuracy": 0.9933
+  },
+  "regresion": {
+    "MSE": 0.298484,
+    "R2": 0.51534
+  },
+  "clustering": {
+    "inertia": 223.9526,
+    "distribucion": {
+      "0": 350,
+      "1": 297,
+      "2": 353
+    }
+  }
+}

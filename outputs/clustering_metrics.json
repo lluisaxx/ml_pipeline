@@ -1,0 +1,9 @@
+{
+  "n_clusters": 3,
+  "inertia": 223.9526,
+  "cluster_distribution": {
+    "0": 350,
+    "1": 297,
+    "2": 353
+  }
+}
